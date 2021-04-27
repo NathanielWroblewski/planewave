@@ -1,51 +1,105 @@
-// import Vector from './vector.js'
-// import Vector4D from './vector4D.js'
-// import numberSystems from '../isomorphisms/number_systems.js'
+import Vector from './vector.js'
+import Vector4D from './vector4D.js'
+import FourByFour from './four_by_four.js'
 
-// class Camera {
-//   constructor ({ position, clip, limits, spherical, context }) {
-//     this.position = position || Vector.from([0, 0, 5])
-//     this.clip = clip || Vector.from([100, -100]) // near, far clipping planes
-//     this.limits = limits || Vector.from([
-//       Math.abs(this.clip[0]) * Math.sqrt(3), // x limit of the projecting screen
-//       Math.abs(this.clip[0]) // y limit of the projecting screen
-//     ])
-//     this.canvasLimits = Vector.from([
-//       context.canvas.width / 2,
-//       context.canvas.height / 2
-//     ])
-//     this.spherical = spherical || Vector.from([0, 0, 0]) // (r,θ,φ)
-//     this.context = context
-//   }
+// Copyright (c) 2020 Nathaniel Wroblewski
+// I am making my contributions/submissions to this project solely in my personal
+// capacity and am not conveying any rights to any intellectual property of any
+// third parties.
 
-//   // The ratio of the real y to the projected y is:
-//   // yproj / n = y / z => yproj = (n/z) y
-//   project ([x, y, z]) {
-//     const [near, far] = this.clip
+const NEAR_RANGE = 0.0
+const FAR_RANGE = 1.0
 
-//     if (z < near && z > far) {
-//       return Vector.from([x * (near / z), y * (near / z) + 20, z])
-//     }
-//   }
+class Camera {
+  constructor ({ position, direction, up, width, height }) {
+    this.position = position
+    this.direction = direction
+    this.up = up
 
-//   snap (point) {
-//     // Translate camera
-//     const translated = point.subtract(this.position)
+    this.projection = FourByFour.identity()
+    this.view = FourByFour.identity()
+    this.combined = FourByFour.identity()
+    this.invProjectionView = FourByFour.identity()
 
-//     // Rotate camera
-//     const θaxis = Vector.from([0, 1, 0])
-//     const φaxis = Vector.from([-1, 0, 0])
-//     const rotated = point.rotate(θaxis, this.spherical.θ).rotate(φaxis, this.spherical.φ)
-//     const projected = this.project(rotated)
+    this.near = 1
+    this.far = 100
 
-//     if (!projected) return null // behind camera
+    this.ray = {
+      origin: Vector.zeroes(),
+      direction: Vector.zeroes()
+    }
 
-//     // transform world coordinates to canvas coordinates
-//     return Vector.from([
-//       ((projected.x / (this.limits.x * 2)) * this.canvasLimits.x * 2) + this.canvasLimits.x,
-//       ((-projected.y / (this.limits.y * 2)) * this.canvasLimits.y * 2) + this.canvasLimits.y
-//     ])
-//   }
-// }
+    this.width = width
+    this.height = height
+  }
 
-// export default Camera
+  get viewport () {
+    Vector.from([0, 0, this.width, this.height])
+  }
+
+  setViewport (width, height) {
+    this.width = width
+    this.height = height
+  }
+
+  translate (position) {
+    this.position.add(position)
+  }
+
+  look (origin) {
+    this.direction = origin.subtract(this.position).normalize()
+
+    const right = this.direction.cross(this.up).normalize()
+
+    this.up = right.cross(this.direction).normalize()
+  }
+
+  rotate (axis, radians) {
+    this.direction.rotate(axis, radians)
+    this.up.rotate(axis, radians)
+  }
+
+  rotateAround (point, axis, radians) {
+    const diff = point.subtract(this.position)
+
+    this.translate(diff)
+    this.rotate(axis, radians)
+    this.translate(diff.multiply(-1))
+  }
+
+  project (vector) {
+    const out = Vector4D.from([...vector, 1])
+    const inClipSpace = out.transform(this.combined)
+    const ndc = Vector4D.from([ // normalized device coordinates
+      inClipSpace.x / inClipSpace.w,
+      inClipSpace.y / inClipSpace.w,
+      inClipSpace.z / inClipSpace.w,
+      inClipSpace.w
+    ])
+
+    return Vector4D.from([ // window coordinates
+      this.width / 2 * ndc.x + (this.width / 2),
+      this.height / 2 * ndc.y + (this.height / 2),
+      (FAR_RANGE - NEAR_RANGE) / 2 * ndc.z + (FAR_RANGE + NEAR_RANGE) / 2,
+      1 / ndc.w // 1 / clip.w
+    ])
+  }
+
+  unproject (vector) {
+    return vector.unproject(this.viewport, this.invProjectionView)
+  }
+
+  pickRay ([x, y]) {
+    const direction = Vector.from([x, y, 1])
+    this.ray.origin = Vector.from([x, y, 0])
+
+    origin.unproject(this.viewport, this.invProjectionView)
+    direction.unproject(this.viewport, this.invProjectionView)
+
+    this.ray.direction = direction.subtract(origin).normalize()
+
+    return this.ray
+  }
+}
+
+export default Camera

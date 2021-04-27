@@ -1,18 +1,13 @@
-import Ziggurat from './models/ziggurat.js'
 import Vector from './models/vector.js'
 import FourByFour from './models/four_by_four.js'
 import Camera from './models/orthographic.js'
-import Particle from './models/particle.js'
-import coordinates from './isomorphisms/coordinates.js'
-import numberSystems from './isomorphisms/number_systems.js'
+import angles from './isomorphisms/angles.js'
 import renderCircle from './views/circle.js'
 import renderLine from './views/line.js'
 import { seed, noise } from './utilities/noise.js'
-import { BLUE } from './constants/colors.js'
-import {
-  SPHERE_RADIUS, WIDTH, HEIGHT, HALF_WIDTH, HALF_HEIGHT,
-  PARTICLE_RADIUS, RESOLUTIONS
-} from './constants/dimensions.js'
+import { remap, grid } from './utilities/index.js'
+import { COLORS, GREYS } from './constants/colors.js'
+import { GRID_WIDTH } from './constants/dimensions.js'
 
 // Copyright (c) 2020 Nathaniel Wroblewski
 // I am making my contributions/submissions to this project solely in my personal
@@ -22,28 +17,18 @@ import {
 const canvas = document.querySelector('.canvas')
 const context = canvas.getContext('2d')
 
-const GRID_WIDTH = 50
-const GRID_HEIGHT = 50
-const GRID_OFFSET = 4
-const PARTICLE_COUNT = GRID_WIDTH * GRID_HEIGHT
+const perspective = FourByFour
+  .identity()
+  .rotX(angles.toRadians(20))
+  .rotY(angles.toRadians(40))
 
-const DEG45 = 45 * Math.PI/180
+const from = Vector.from([-100, -100])
+const to = Vector.from([100, 100])
+const by = Vector.from([4, 4])
 
-const toRad = degrees => degrees * Math.PI/180
-
-const transform = FourByFour.identity().rotX(toRad(20)).rotY(toRad(40))
-
-// Initialize
-const particles = []
-
-for (let z = -GRID_HEIGHT/2; z <= GRID_HEIGHT/2; z++) {
-  for (let x = -GRID_WIDTH/2; x <= GRID_WIDTH/2; x++) {
-    const particle = Vector.from([x * GRID_OFFSET, 0, z * GRID_OFFSET]).transform(transform)
-
-    particles.push(particle)
-  }
-}
-
+const particles = grid({ from, to, by }, ([x, z]) => (
+  Vector.from([x, 0, z]).transform(perspective)
+))
 
 const camera = new Camera({
   position: Vector.from([0,0,0]),
@@ -56,32 +41,59 @@ const camera = new Camera({
 
 seed(Math.random())
 
-context.strokeStyle = BLUE
-context.fillStyle = BLUE
-
 // Render loop
 
 let time = 0
-const resolution = 0.01
 
 const step = () => {
-  context.clearRect(0, 0, WIDTH, HEIGHT)
+  context.clearRect(0, 0, canvas.width, canvas.height)
 
-  particles.forEach(particle => {
-    const adjusted = particle.add(Vector.from([
-      0,
-       Math.sin(noise(particle.x * resolution, particle.z * resolution, time)) * 12,
-      0,
-    ]))
+  const neighbors = []
 
-    const cartesian = camera.project(adjusted)
+  // render in reverse order and paint the bottom plane first so that the top
+  // particles will overlap the bottom lines where the grids overlap
+  for (let index = particles.length - 1; index > -1; index--) {
+    const particle = particles[index]
+    const yOffset = 40
 
-    if (cartesian) {
-      renderCircle(context, cartesian, 0.5, BLUE, BLUE)
+    // render bottom plane
+    const bottomResolution = 0.005
+    const bottomDelta = 3 * Math.sin(21 * noise(particle.x * bottomResolution, particle.y * bottomResolution, time))
+    const bottomAdjusted = particle.add(Vector.from([0, -yOffset + bottomDelta, 0]))
+    const bottomProjected = camera.project(bottomAdjusted)
+
+    if (bottomProjected) {
+      neighbors.push(bottomProjected)
+
+      const colorIndex = Math.floor(remap(yOffset + bottomAdjusted.y - particle.y, [-3, 3], [0, GREYS.length]))
+      const color = GREYS[colorIndex]
+      const neighbor = neighbors[particles.length - 1 - index - GRID_WIDTH]
+
+      if (neighbor) {
+        renderLine(context, bottomProjected, neighbor, color)
+      }
+
+      // uncomment to render the complimentary/orthogonal grid lines
+      // const next = neighbors[particles.length - 1 - index - 1]
+
+      // if (next && index % GRID_WIDTH !== GRID_WIDTH - 1) {
+      //   renderLine(context, bottomProjected, next, color)
+      // }
     }
 
-    // color the peaks and the troughs
-  })
+    // render top plane
+    const topResolution = 0.01
+    const topDelta = 12 * noise(particle.x * topResolution, particle.z * topResolution, time)
+    const topAdjusted = particle.add(Vector.from([0, yOffset + topDelta, 0]))
+    const topProjected = camera.project(topAdjusted)
+
+    if (topProjected) {
+      const colorIndex = Math.floor(remap(topAdjusted.y - particle.y - yOffset, [-10, 10], [0, COLORS.length]))
+      const color = COLORS[colorIndex]
+
+      renderCircle(context, topProjected, 0.5, color, color)
+    }
+  }
 
   time += 0.02
   window.requestAnimationFrame(step)

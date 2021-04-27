@@ -1,5 +1,10 @@
-import Camera from './cam.js'
+import Camera from './camera.js'
 import FourByFour from './four_by_four.js'
+
+// Copyright (c) 2020 Nathaniel Wroblewski
+// I am making my contributions/submissions to this project solely in my personal
+// capacity and am not conveying any rights to any intellectual property of any
+// third parties.
 
 class Perspective extends Camera {
   constructor (options = {}) {

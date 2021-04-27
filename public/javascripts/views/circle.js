@@ -9,8 +9,14 @@ const render = (context, [x, y], r, stroke, fill, alpha) => {
   context.beginPath()
   context.arc(x, y, r, 0, τ)
 
-  if (fill) context.fill()
-  if (stroke) context.stroke()
+  if (fill) {
+    context.fillStyle = fill
+    context.fill()
+  }
+  if (stroke) {
+    context.strokeStyle = fill
+    context.stroke()
+  }
 }
 
 export default render
