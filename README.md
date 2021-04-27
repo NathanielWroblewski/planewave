@@ -1,7 +1,7 @@
-Frenzy
+Planewave
 ===
 
-![Screenshot](https://raw.githubusercontent.com/NathanielWroblewski/frenzy/master/public/images/screenshot.png)
+![Screenshot](https://raw.githubusercontent.com/NathanielWroblewski/planewave/master/public/images/screenshot.png)
 
 Running locally
 ---
@@ -9,8 +9,8 @@ Running locally
 On a mac, clone the repo, and run a server:
 
 ```
-$ git clone https://github.com/NathanielWroblewski/frenzy.git
-$ cd frenzy
+$ git clone https://github.com/NathanielWroblewski/planewave.git
+$ cd planewave
 $ open http://localhost:8000 && python -m SimpleHTTPServer
 ```
 
