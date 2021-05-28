@@ -5,3 +5,4 @@
 
 export const τ = 2 * Math.PI
 export const GRID_WIDTH = 51
+export const FPS = 60

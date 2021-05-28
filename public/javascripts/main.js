@@ -7,7 +7,7 @@ import renderLine from './views/line.js'
 import { seed, noise } from './utilities/noise.js'
 import { remap, grid } from './utilities/index.js'
 import { COLORS, GREYS } from './constants/colors.js'
-import { GRID_WIDTH } from './constants/dimensions.js'
+import { GRID_WIDTH, FPS } from './constants/dimensions.js'
 
 // Copyright (c) 2020 Nathaniel Wroblewski
 // I am making my contributions/submissions to this project solely in my personal
@@ -45,7 +45,7 @@ seed(Math.random())
 
 let time = 0
 
-const step = () => {
+const render = () => {
   context.clearRect(0, 0, canvas.width, canvas.height)
 
   const neighbors = []
@@ -96,7 +96,18 @@ const step = () => {
   }
 
   time += 0.02
-  window.requestAnimationFrame(step)
 }
 
-window.requestAnimationFrame(step)
+let prevTick = 0
+
+const step = () => {
+  window.requestAnimationFrame(step)
+
+  const now = Math.round(FPS * Date.now() / 1000)
+  if (now === prevTick) return
+  prevTick = now
+
+  render()
+}
+
+step()
